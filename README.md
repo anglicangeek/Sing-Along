@@ -50,7 +50,7 @@ In the browser, Sing-Along depends on jQuery (1.4.2 or later). You'll need to in
       var $on = $.singAlong.on;
       var $send = $.singAlong.send;
       
-      $on("song", function(server, data) {
+      $on("song", function(data) {
         // stuff
       });
       
@@ -100,7 +100,7 @@ The Sing-Along jQuery plug-in has an `on` method you will use to register messag
     <script>
       var $on = $.singAlong.on;
       
-      $on("said", function(server, data) {
+      $on("said", function(data) {
         $("#chatLog").append(data.text);
       });
     </script>
@@ -144,12 +144,12 @@ Sing-Along has a JavaScript equivalent of `on_error`, the `onError` method. As w
       var $onError = $.singAlong.onError;
   
       // an error handler for a specific message type
-      $onError("say", function(server, error) {
+      $onError("say", function(error) {
         alert(error);
       });
       
       // an error handler for a specific message type
-      $onError(function(server, messageType, error) {
+      $onError(function(messageType, error) {
         alert("Error for " + messageType + ": " + error);
       });
     </script>
