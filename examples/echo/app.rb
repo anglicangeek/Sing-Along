@@ -1,9 +1,8 @@
 require "sinatra"
-require File.join File.expand_path(File.dirname(__FILE__)), "../../lib/sinatra/sing-along"
+require File.join(File.expand_path(File.dirname(__FILE__)), "../../lib/sinatra/sing-along")
 
 on :echo do |data, context|
-  puts data["text"]
-  broadcast :echo, { :text => 'Hello from the server.' } 
+  broadcast :echo, { :text => data["text"] } 
 end
 
 get "/" do
@@ -22,10 +21,21 @@ __END__
       var $on = $.singAlong.on;
       var $send = $.singAlong.send;
       
-      $on("echo", function(data) {
-        document.write(data.text);
+      $(document).ready(function() {
+        $('#echo').submit(function() {
+          $send("echo", { text: $('#text').val() });
+          $('#text').val('');
+          return false;
+        });
       });
       
-      $send("echo", { text: "Hello from the client." });
+      $on('echo', function(data) {
+        $('#echoes').append('<li>' + data.text + '</li>');
+      });
   %body
-    Hello
+    %form#echo{ :name=>'echo', :action=>'#' }
+      %input#text{ :name=>'text', :type=>'text'}
+      %input{ :type=>'submit', :value=>'Echo'}
+    %label{ :for=>'echoes' }
+      Echoes:
+    %ul#echoes

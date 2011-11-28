@@ -1,3 +1,4 @@
+require "thin"
 require "sinatra/base"
 require "fiber"
 require "rack/fiber_pool"
@@ -59,8 +60,7 @@ module Sinatra
         instance_exec(message_data, context, &handler)
         
         return {
-          :context => context
-        }.to_json
+          :context => context }.to_json
       end
       
       app.get "/jquery.sing-along.js" do
@@ -69,7 +69,14 @@ module Sinatra
         send_file(file)
       end
       
-      # add clean-up timer
+      EventMachine::next_tick do
+        EventMachine::add_periodic_timer(1) do
+          now = Time.new
+          while !(@@callbacks ||= []).empty? && now - @@callbacks[0][:timestamp] > 20
+            @@callbacks.shift[:callback].call([])
+          end 
+        end
+      end
     end
     
     def get_messages(from)
