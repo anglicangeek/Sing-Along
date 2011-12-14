@@ -21,7 +21,7 @@ module Sinatra
     end
     
     def on(message_type, &block)
-      (@@handlers ||= {})[message_type] = block if block_given?
+      SingAlong::handlers[message_type] = block if block_given?
     end
 
     def self.registered(app)
@@ -54,7 +54,7 @@ module Sinatra
         request.body.rewind
         data = JSON.parse request.body.read
         message_type, message_data, context = data["message_type"].to_sym, data["message_data"], data["context"]
-        handler = (@@handlers ||= {})[message_type]
+        handler = SingAlong::handlers[message_type]
         return if handler.nil?
         
         instance_exec do
@@ -82,6 +82,8 @@ module Sinatra
           end 
         end
       end
+      
+      # TODO: clean up messages
     end
     
     def get_messages(from)
@@ -102,6 +104,10 @@ module Sinatra
     
     def self.callbacks
       @@callbacks ||= []
+    end
+    
+    def self.handlers
+      @@handlers ||= {}
     end
     
   end
