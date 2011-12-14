@@ -37,7 +37,7 @@ module Sinatra
         
         if messages.length == 0
           fiber = Fiber.current
-          (@@callbacks ||= []) << { :timestamp => Time.new, :callback => Proc.new { |messages|
+          SingAlong::callbacks << { :timestamp => Time.new, :callback => Proc.new { |messages|
             fiber.resume(messages)
           }}
           messages = Fiber.yield
@@ -57,7 +57,12 @@ module Sinatra
         handler = (@@handlers ||= {})[message_type]
         return if handler.nil?
         
-        instance_exec(message_data, context, &handler)
+        instance_exec do
+          message_data.each do |k,v| 
+            params[k.to_sym] = v
+          end
+        end
+        instance_exec(&handler)
         
         return {
           :context => context }.to_json
@@ -71,9 +76,9 @@ module Sinatra
       
       EventMachine::next_tick do
         EventMachine::add_periodic_timer(1) do
-          now = Time.new
-          while !(@@callbacks ||= []).empty? && now - @@callbacks[0][:timestamp] > 20
-            @@callbacks.shift[:callback].call([])
+          callbacks, now = SingAlong::callbacks, Time.new
+          while !callbacks.empty? && now - callbacks[0][:timestamp] > 20
+            callbacks.shift[:callback].call([])
           end 
         end
       end
@@ -91,6 +96,12 @@ module Sinatra
       while (@@callbacks ||= []).length > 0
         @@callbacks.shift[:callback].call([message])
       end
+    end
+    
+    private
+    
+    def self.callbacks
+      @@callbacks ||= []
     end
     
   end
