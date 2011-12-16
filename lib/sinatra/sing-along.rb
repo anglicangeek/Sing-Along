@@ -6,10 +6,52 @@ require "json"
 
 module Sinatra
   module SingAlong
+
+    class LocalConnectionStore
+      def initialize
+        @last_id = 0
+      end
+      
+      def create
+        id = next_id
+        connections[id] = {
+          :id => id,
+          :timestamp => Time.new }
+      end
+      
+      def [](id)
+        connections[id]
+      end
+      
+      private
+      
+      def connections
+        @connections ||= {}
+      end
+      
+      def next_id
+        @last_id += 1
+      end
+    end
     
     module Helpers
       def broadcast(event, data)
-        SingAlong::broadcast(event, data)
+        SingAlong::broadcast event, data
+      end
+      
+      def connection
+        @connection
+      end
+            
+      private
+      
+      def connection=(value)
+        @connection = value
+      end
+      
+      def read_message
+        request.body.rewind
+        return JSON.parse request.body.read
       end
     end
     
@@ -21,16 +63,29 @@ module Sinatra
       app.use Rack::FiberPool
       app.helpers SingAlong::Helpers
       
+      app.get "/jquery.sing-along.js" do
+        path = File.dirname __FILE__
+        file = File.join path, "/sing-along/jquery.sing-along.js"
+        send_file file
+      end
+      
+      app.post "/sing-along/xhr/connect" do
+        connection = SingAlong::connections.create
+        return { :cid => connection[:id] }.to_json
+      end
+      
       app.post "/sing-along/xhr/poll" do
-        request.body.rewind
-        data = JSON.parse(request.body.read)
-        last_message_id = data["last_message_id"] || SingAlong::get_next_message_id()
-        messages = SingAlong::get_new_messages(last_message_id)
+        message = read_message
+        cid, last_message_id = message["cid"], message["last_message_id"] || SingAlong::get_next_message_id
+        connection = SingAlong::connections[cid]
+        # TODO: what to do when cid is bad?
+        return if connection.nil?
         
+        messages = SingAlong::get_new_messages last_message_id
         if messages.length == 0
           fiber = Fiber.current
           SingAlong::callbacks << { :timestamp => Time.new, :proc => Proc.new { |messages|
-            fiber.resume(messages)
+            fiber.resume messages
           }}
           messages = Fiber.yield
         end
@@ -39,14 +94,16 @@ module Sinatra
       end
       
       app.post "/sing-along/xhr/send" do
-        request.body.rewind
-        message = JSON.parse(request.body.read)
-        event, data = message["event"].to_sym, message["data"]
+        message = read_message
+        cid, event, data = message["cid"], message["event"].to_sym, message["data"]
+        connection = SingAlong::connections[cid]
         handler = SingAlong::handlers[event]
-        return if handler.nil?
+        # TODO: what to do when cid is bad?
+        return if connection.nil? || handler.nil?
         
-        instance_exec do
-          data.each do |k,v| 
+        instance_exec(connection, data) do |c, d|
+          connection = c
+          d.each do |k,v| 
             params[k.to_sym] = v
           end
         end
@@ -55,10 +112,11 @@ module Sinatra
         return {}.to_json
       end
       
-      app.get "/jquery.sing-along.js" do
-        path = File.dirname(__FILE__)
-        file = File.join(path, "/sing-along/jquery.sing-along.js")
-        send_file(file)
+      app.post "/sing-along/xhr/disconnect" do
+        message = read_message
+        cid = message[:cid]
+        return if cid.empty?
+        SingAlong::connections.delete cid
       end
       
       EventMachine::next_tick do
@@ -87,6 +145,10 @@ module Sinatra
     
     def self.callbacks
       @@callbacks ||= []
+    end
+    
+    def self.connections
+      @@connections ||= LocalConnectionStore.new
     end
     
     def self.handlers
