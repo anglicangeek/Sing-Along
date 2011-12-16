@@ -12,7 +12,7 @@ module Sinatra
         @last_id = 0
       end
       
-      def create
+      def add
         id = next_id
         connections[id] = {
           :id => id,
@@ -29,6 +29,39 @@ module Sinatra
         @connections ||= {}
       end
       
+      def next_id
+        @last_id += 1
+      end
+    end
+    
+    class LocalMessageStore
+      def initialize
+        @last_id = 0
+      end
+      
+      def add(event, data)
+        id = next_id
+        messages << {
+          :id => id,
+          :event => event,
+          :data => data,
+          :timestamp => Time.new }
+        messages.last
+      end
+      
+      def since(last_id)
+        return [] if last_id.nil?
+        new_messages = []
+        messages.each { |message| new_messages << message if message[:id] > last_id }
+        return new_messages
+      end
+      
+      private
+      
+      def messages
+        @messages ||= []
+      end
+
       def next_id
         @last_id += 1
       end
@@ -70,18 +103,17 @@ module Sinatra
       end
       
       app.post "/sing-along/xhr/connect" do
-        connection = SingAlong::connections.create
+        connection = SingAlong::connections.add
         return { :cid => connection[:id] }.to_json
       end
       
       app.post "/sing-along/xhr/poll" do
         message = read_message
-        cid, last_message_id = message["cid"], message["last_message_id"] || SingAlong::get_next_message_id
+        cid, last_message_id = message["cid"], message["last_message_id"]
         connection = SingAlong::connections[cid]
         # TODO: what to do when cid is bad?
         return if connection.nil?
-        
-        messages = SingAlong::get_new_messages last_message_id
+        messages = SingAlong::messages.since(last_message_id)
         if messages.length == 0
           fiber = Fiber.current
           SingAlong::callbacks << { :timestamp => Time.new, :proc => Proc.new { |messages|
@@ -134,12 +166,7 @@ module Sinatra
     private
     
     def self.broadcast(event, data)
-      message = {
-        :id => get_next_message_id(),
-        :event => event,
-        :data => data,
-        :timestamp => Time.new }
-      messages << message
+      message = messages.add(event, data)
       callbacks.shift[:proc].call([message]) while callbacks.length > 0
     end
     
@@ -155,23 +182,8 @@ module Sinatra
       @@handlers ||= {}
     end
     
-    def self.get_new_messages(last_message_id)
-      new_messages = []
-      return nil if messages.nil?
-      messages.each { |message| new_messages << message if message[:id] > last_message_id }
-      return new_messages
-    end
-    
-    def self.get_next_message_id
-      if messages.empty?
-        return 1
-      else
-        return messages.last[:id]
-      end
-    end
-    
     def self.messages
-      @@messages ||= []
+      @@messages ||= LocalMessageStore.new
     end    
   end
   
