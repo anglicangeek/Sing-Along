@@ -71,16 +71,8 @@ module Sinatra
       def broadcast(event, data)
         SingAlong::broadcast event, data
       end
-      
-      def connection
-        @connection
-      end
             
       private
-      
-      def connection=(value)
-        @connection = value
-      end
       
       def read_message
         request.body.rewind
@@ -133,10 +125,13 @@ module Sinatra
         # TODO: what to do when cid is bad?
         return if connection.nil? || handler.nil?
         
-        instance_exec(connection, data) do |c, d|
-          connection = c
-          d.each do |k,v| 
-            params[k.to_sym] = v
+        instance_exec do
+          class << self
+            attr_reader :connection, :data
+          end
+          @connection, @data = connection, { }
+          data.each do |k,v| 
+            @data[k.to_sym] = v
           end
         end
         instance_exec(&handler)
