@@ -1,0 +1,97 @@
+!!!
+%html
+  %head
+    %script{ :src => 'http://code.jquery.com/jquery-1.7.js' }
+    %script{ :src => '/jquery.sing-along.js' }
+    :javascript
+      var $on = $.singAlong.on;
+      var $send = $.singAlong.send;
+      
+      function parseInput(input) {
+        if (input[0] != '/')
+          return {
+            event: 'say',
+            data: { text: input }
+          };
+        
+        var commandEndPosition = input.indexOf(' ');
+        var command = input.slice(1, commandEndPosition);
+        var text = input.slice(commandEndPosition + 1);
+        switch(command) {
+          case "nick":
+            return parseNick(text);
+          default:
+            throw command + " ain't no command I've ever heard of. They speak English in " + command + "?";
+        }
+      }
+      
+      function parseNick(text) {
+        return {
+          event: 'nick',
+          data: { nick: text }
+        };
+      }
+      
+      $(document).ready(function() {
+        $('#command').submit(function() {
+          var input = parseInput($('#text').val());
+          $send(input.event, input.data);
+          $('#text').val('');
+          return false;
+        });
+        
+        $('#text').focus();
+      });
+      
+      $on('said', function(data) {
+        $('#history ul').append('<li>' + data.text + '</li>');
+      });
+      
+      $on('error', function(data) {
+        $('#echoes').append('<li>' + data.text + '</li>');
+      });
+    %style{ :type => "text/css" }
+      :sass
+        html, body
+          height: 100%
+          margin: 0
+          padding: 0
+        #master
+          height: 100%
+          width: 100%
+        #history
+          padding: 5px
+          width: 100%
+          ul
+            border: 2px solid #aaa
+            height: 100%
+            margin: 0
+            padding: 0
+            width: 100%
+        #participants
+          padding: 5px
+          vertical-align: top
+          ul
+            width: 200px
+        #input
+          height: 50px
+          padding: 5px
+          width: 100%
+        #command
+          input
+            border: 2px solid #aaa
+            box-sizing: border-box
+            padding: 5px
+            width: 100%
+  %body
+    %table#master
+      %tr
+        %td#history
+          %ul
+        %td#participants
+          Participants:
+          %ul
+      %tr
+        %td#input{ :colspan => 2 }
+          %form#command{ :name=>'command', :action=>'#' }
+            %input#text{ :name=>'text', :type => 'text' }

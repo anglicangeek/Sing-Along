@@ -2,7 +2,7 @@ require "sinatra"
 require File.join(File.expand_path(File.dirname(__FILE__)), "../../lib/sinatra/sing-along")
 
 on :echo do
-  broadcast :echo, { :text => params[:text] } 
+  broadcast :echo, { :text => data[:text] } 
 end
 
 get "/" do
