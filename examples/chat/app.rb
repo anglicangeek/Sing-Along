@@ -10,7 +10,6 @@ get '/' do
 end
 
 on :nick do
-  puts ":nick"
   nick = data[:nick]
   broadcast :error, { :text => "The nickname '#{nick}' is already being used." } and return if $nicks.include?(nick)
   connection[:nick] = nick
