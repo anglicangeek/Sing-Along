@@ -1,4 +1,4 @@
-_**NOTICE! This repo is very, very outdates and no longer maintained.**_
+_**NOTICE! This repo is very, very outdated and no longer maintained.**_
 
 # Sing-Along
 
