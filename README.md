@@ -1,3 +1,5 @@
+_**NOTICE! This repo is very, very outdates and no longer maintained.**_
+
 # Sing-Along
 
 Sing-Along is a [Sinatra](http://sinatrarb.com) extension for quickly creating real-time web apps in Ruby with minimal effort.
